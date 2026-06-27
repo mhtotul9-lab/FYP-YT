@@ -820,7 +820,6 @@ export default function Home() {
 
   const [config, setConfig] = useState<ThumbnailConfig>({
     ...defaultConfig,
-    textLayers: TEMPLATES[0].config.textLayers,
     ...TEMPLATES[0].config,
   })
   const [selectedSize, setSelectedSize] = useState(0)
