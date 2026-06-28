@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const SYSTEM_PROMPT = `You are a Bangladeshi YouTube thumbnail design expert. Create a thumbnail config JSON for the given topic.
+const PROMPT = (topic: string) => `You are a Bangladeshi YouTube thumbnail designer. Create a thumbnail config JSON for: "${topic}"
 
-Return ONLY raw JSON. No markdown, no backticks, no explanation whatsoever.
+Rules:
+- ALL text fields must be written in Bengali (Bangla script)
+- Add relevant emoji to text
+- Choose colors based on topic:
+  Tech/AI/YouTube: gradientFrom "#0a0a2e" gradientTo "#1a0a3e" frameColor "#7C3AED"
+  Travel: gradientFrom "#064e3b" gradientTo "#065f46" frameColor "#10B981"
+  Money/Business: gradientFrom "#1a1a1a" gradientTo "#2d1f00" main color "#FFD700"
+  Food: gradientFrom "#7f1d1d" gradientTo "#dc2626" frameColor "#FCA5A5"
+  Horror: gradientFrom "#000000" gradientTo "#1a0000" frameColor "#DC2626" glow true
+  Review: gradientFrom "#1e1b4b" gradientTo "#312e81" frameColor "#818CF8"
 
-JSON structure (fill in appropriate values):
+Return ONLY this JSON (no markdown, no explanation):
 {
   "backgroundType": "gradient",
   "gradientFrom": "#0a0a2e",
@@ -24,198 +33,174 @@ JSON structure (fill in appropriate values):
   "textLayers": [
     {
       "id": "main",
-      "text": "WRITE IN BENGALI - catchy headline 3-6 words with emoji",
-      "x": 60,
-      "y": 160,
-      "fontSize": 95,
-      "fontWeight": "900",
-      "color": "#FFFFFF",
-      "strokeColor": "#000000",
-      "strokeWidth": 4,
-      "shadowColor": "#000000",
-      "shadowBlur": 20,
-      "rotation": 0,
-      "gradient": false,
-      "gradientFrom": "#A855F7",
-      "gradientTo": "#06B6D4",
-      "align": "left",
-      "fontFamily": "Noto Sans Bengali",
-      "uppercase": false,
-      "outline": false,
-      "glow": false,
-      "glowColor": "#7C3AED"
+      "text": "বাংলায় শিরোনাম লিখুন + emoji",
+      "x": 60, "y": 160, "fontSize": 95, "fontWeight": "900",
+      "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidth": 4,
+      "shadowColor": "#000000", "shadowBlur": 20, "rotation": 0,
+      "gradient": false, "gradientFrom": "#A855F7", "gradientTo": "#06B6D4",
+      "align": "left", "fontFamily": "Noto Sans Bengali",
+      "uppercase": false, "outline": false, "glow": false, "glowColor": "#7C3AED"
     },
     {
       "id": "sub",
-      "text": "WRITE IN BENGALI - subtitle 2-4 words",
-      "x": 60,
-      "y": 300,
-      "fontSize": 58,
-      "fontWeight": "700",
-      "color": "#FFD700",
-      "strokeColor": "#000000",
-      "strokeWidth": 2,
-      "shadowColor": "#000000",
-      "shadowBlur": 10,
-      "rotation": 0,
-      "gradient": false,
-      "gradientFrom": "#FFD700",
-      "gradientTo": "#FF6B35",
-      "align": "left",
-      "fontFamily": "Noto Sans Bengali",
-      "uppercase": false,
-      "outline": false,
-      "glow": false,
-      "glowColor": "#FFD700"
+      "text": "বাংলায় সাবটাইটেল",
+      "x": 60, "y": 300, "fontSize": 58, "fontWeight": "700",
+      "color": "#FFD700", "strokeColor": "#000000", "strokeWidth": 2,
+      "shadowColor": "#000000", "shadowBlur": 10, "rotation": 0,
+      "gradient": false, "gradientFrom": "#FFD700", "gradientTo": "#FF6B35",
+      "align": "left", "fontFamily": "Noto Sans Bengali",
+      "uppercase": false, "outline": false, "glow": false, "glowColor": "#FFD700"
     }
   ]
+}`
+
+function extractJson(raw: string): object | null {
+  try {
+    let s = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+    const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (fence) s = fence[1].trim()
+    const b1 = s.indexOf('{'), b2 = s.lastIndexOf('}')
+    if (b1 === -1 || b2 === -1) return null
+    const cfg = JSON.parse(s.slice(b1, b2 + 1))
+    return cfg.textLayers ? cfg : null
+  } catch { return null }
 }
 
-Design rules by topic category:
-- Tech/AI/YouTube: gradientFrom "#0a0a2e" gradientTo "#1a0a3e" frameColor "#7C3AED" frameWidth 5
-- Travel/Adventure: gradientFrom "#064e3b" gradientTo "#065f46" frameColor "#10B981"  
-- Income/Business/Money: gradientFrom "#1a1a1a" gradientTo "#2d1f00" main text color "#FFD700" gradient true gradientFrom "#FFD700" gradientTo "#FF6B35"
-- Food/Cooking: gradientFrom "#7f1d1d" gradientTo "#dc2626" frameColor "#FCA5A5"
-- Horror/Mystery: gradientFrom "#000000" gradientTo "#1a0000" glow true glowColor "#DC2626" frameColor "#DC2626"
-- Review/Product: gradientFrom "#1e1b4b" gradientTo "#312e81" frameColor "#818CF8"
+// ── Provider 1: Groq (FREE, fast, reliable) ──────────────────────────────────
+async function tryGroq(prompt: string, apiKey: string): Promise<string | null> {
+  const models = [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'gemma2-9b-it',
+    'mixtral-8x7b-32768',
+  ]
+  for (const model of models) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: PROMPT(prompt) }],
+          max_tokens: 1500,
+          temperature: 0.7,
+        }),
+      })
+      if (res.status === 429) { console.log(`Groq ${model}: rate limited`); continue }
+      if (!res.ok) { console.log(`Groq ${model}: ${res.status}`); continue }
+      const data = await res.json()
+      const text = data?.choices?.[0]?.message?.content || ''
+      if (text.length > 20) { console.log(`Groq ✅ ${model}`); return text }
+    } catch (e) { console.log(`Groq ${model} err: ${e}`) }
+  }
+  return null
+}
 
-IMPORTANT: All text must be in Bengali (Bangla script). Add relevant emoji. Return ONLY the JSON object.`
+// ── Provider 2: Gemini (FREE 1500/day) ───────────────────────────────────────
+async function tryGemini(prompt: string, apiKey: string): Promise<string | null> {
+  const models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-lite']
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: PROMPT(prompt) }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+          }),
+        }
+      )
+      if (res.status === 429) { console.log(`Gemini ${model}: rate limited`); continue }
+      if (!res.ok) { console.log(`Gemini ${model}: ${res.status}`); continue }
+      const data = await res.json()
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      if (text.length > 20) { console.log(`Gemini ✅ ${model}`); return text }
+    } catch (e) { console.log(`Gemini ${model} err: ${e}`) }
+  }
+  return null
+}
 
-// Currently verified working free models on OpenRouter (June 2025)
-const FREE_MODELS = [
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'meta-llama/llama-3.1-8b-instruct:free',
-  'qwen/qwen3-8b:free',
-  'qwen/qwen3-14b:free',
-  'qwen/qwen-2.5-72b-instruct:free',
-  'tngtech/deepseek-r1t-chimera:free',
-  'moonshotai/kimi-vl-a3b-thinking:free',
-]
+// ── Provider 3: OpenRouter (FREE models) ─────────────────────────────────────
+async function tryOpenRouter(prompt: string, apiKey: string): Promise<string | null> {
+  const models = [
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'qwen/qwen3-8b:free',
+    'qwen/qwen3-14b:free',
+    'qwen/qwen-2.5-72b-instruct:free',
+  ]
+  for (const model of models) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://fyp-yt.vercel.app',
+          'X-Title': 'Bangla Thumbnail Generator',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: PROMPT(prompt) }],
+          max_tokens: 1500,
+          temperature: 0.7,
+        }),
+      })
+      if (res.status === 429 || res.status === 404 || res.status === 503) {
+        console.log(`OR ${model}: ${res.status}`); continue
+      }
+      if (!res.ok) { console.log(`OR ${model}: ${res.status}`); continue }
+      const data = await res.json()
+      let text = data?.choices?.[0]?.message?.content || ''
+      text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+      if (text.length > 20) { console.log(`OR ✅ ${model}`); return text }
+    } catch (e) { console.log(`OR ${model} err: ${e}`) }
+  }
+  return null
+}
 
+// ── Main ──────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json()
-    if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json({ error: 'prompt required' }, { status: 400 })
-    }
+    if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
 
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
+    const groqKey = process.env.GROQ_API_KEY
+    const geminiKey = process.env.GEMINI_API_KEY
+    const orKey = process.env.OPENROUTER_API_KEY
+
+    if (!groqKey && !geminiKey && !orKey) {
       return NextResponse.json({ error: 'NO_API_KEY' }, { status: 500 })
     }
 
-    console.log(`[ai-generate] prompt: "${prompt}"`)
+    console.log(`[ai] prompt="${prompt}" groq=${!!groqKey} gemini=${!!geminiKey} or=${!!orKey}`)
 
-    let lastError = ''
-    let attemptedModels = 0
+    let raw: string | null = null
 
-    for (const model of FREE_MODELS) {
-      attemptedModels++
-      try {
-        console.log(`[ai-generate] trying (${attemptedModels}/${FREE_MODELS.length}): ${model}`)
+    // Priority: Groq → Gemini → OpenRouter
+    if (!raw && groqKey)   raw = await tryGroq(prompt, groqKey)
+    if (!raw && geminiKey) raw = await tryGemini(prompt, geminiKey)
+    if (!raw && orKey)     raw = await tryOpenRouter(prompt, orKey)
 
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://fyp-yt.vercel.app',
-            'X-Title': 'Bangla Thumbnail Generator',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              {
-                role: 'user',
-                content: `Topic: "${prompt}". Create thumbnail config. All text in Bengali. Return only JSON.`,
-              },
-            ],
-            max_tokens: 1500,
-            temperature: 0.7,
-          }),
-        })
-
-        const resText = await res.text()
-        console.log(`[ai-generate] ${model} → status: ${res.status}`)
-
-        // Skip and try next on these error codes
-        if (res.status === 429 || res.status === 503 || res.status === 502) {
-          lastError = `${model}: rate limited (${res.status})`
-          console.log(`[ai-generate] rate limited, trying next...`)
-          continue
-        }
-
-        if (res.status === 404) {
-          lastError = `${model}: not available (404)`
-          console.log(`[ai-generate] model not available, trying next...`)
-          continue
-        }
-
-        if (!res.ok) {
-          lastError = `${model}: error ${res.status}`
-          console.error(`[ai-generate] ${model} error: ${resText.slice(0, 300)}`)
-          continue
-        }
-
-        const data = JSON.parse(resText)
-        let rawText: string = data?.choices?.[0]?.message?.content || ''
-
-        if (!rawText || rawText.trim().length < 10) {
-          lastError = `${model}: empty response`
-          console.log(`[ai-generate] empty response from ${model}`)
-          continue
-        }
-
-        console.log(`[ai-generate] got response from ${model}, length: ${rawText.length}`)
-
-        // Strip <think> tags (some models include reasoning)
-        rawText = rawText.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
-
-        // Strip markdown fences
-        let jsonStr = rawText.trim()
-        const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (fenceMatch) jsonStr = fenceMatch[1].trim()
-
-        // Extract JSON object
-        const b1 = jsonStr.indexOf('{')
-        const b2 = jsonStr.lastIndexOf('}')
-        if (b1 === -1 || b2 === -1) {
-          lastError = `${model}: no JSON found in response`
-          console.log(`[ai-generate] no JSON in response: ${jsonStr.slice(0, 200)}`)
-          continue
-        }
-        jsonStr = jsonStr.slice(b1, b2 + 1)
-
-        const aiConfig = JSON.parse(jsonStr)
-
-        // Validate required fields exist
-        if (!aiConfig.textLayers || !Array.isArray(aiConfig.textLayers)) {
-          lastError = `${model}: invalid config structure`
-          continue
-        }
-
-        console.log(`[ai-generate] ✅ SUCCESS with: ${model}`)
-        return NextResponse.json({ config: aiConfig, model })
-
-      } catch (e) {
-        lastError = `${model}: exception - ${String(e).slice(0, 100)}`
-        console.error(`[ai-generate] ${model} exception:`, String(e).slice(0, 200))
-        continue
-      }
+    if (!raw) {
+      return NextResponse.json({ error: 'ALL_FAILED', detail: 'All AI providers failed' }, { status: 502 })
     }
 
-    console.error(`[ai-generate] ❌ All ${FREE_MODELS.length} models failed. Last: ${lastError}`)
-    return NextResponse.json(
-      { error: 'ALL_MODELS_FAILED', detail: lastError },
-      { status: 502 }
-    )
+    const config = extractJson(raw)
+    if (!config) {
+      console.error('[ai] parse failed:', raw.slice(0, 300))
+      return NextResponse.json({ error: 'PARSE_FAILED' }, { status: 502 })
+    }
+
+    console.log('[ai] ✅ done')
+    return NextResponse.json({ config })
 
   } catch (err) {
-    console.error('[ai-generate] route error:', err)
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', detail: String(err) },
-      { status: 500 }
-    )
+    console.error('[ai] error:', err)
+    return NextResponse.json({ error: 'INTERNAL_ERROR', detail: String(err) }, { status: 500 })
   }
 }
