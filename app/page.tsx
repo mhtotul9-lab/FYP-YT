@@ -463,117 +463,21 @@ export default function Home() {
     setAiError('')
     setAiSuccess(false)
 
-    const systemPrompt = `তুমি একজন বাংলাদেশি YouTube থাম্বনেইল ডিজাইন বিশেষজ্ঞ। তোমার কাজ হলো ব্যবহারকারীর দেওয়া বিষয়বস্তুর উপর ভিত্তি করে একটি আকর্ষণীয় থাম্বনেইল কনফিগারেশন তৈরি করা।
-
-তুমি শুধুমাত্র JSON ফরম্যাটে উত্তর দেবে, অন্য কিছু লিখবে না।
-
-JSON structure এভাবে হবে:
-{
-  "backgroundType": "gradient",
-  "gradientFrom": "#hex",
-  "gradientTo": "#hex", 
-  "gradientDirection": "135deg",
-  "hasFrame": true,
-  "frameColor": "#hex",
-  "frameWidth": 5,
-  "hasLogo": true,
-  "logoText": "চ্যানেল নাম",
-  "logoX": 40,
-  "logoY": 40,
-  "logoSize": 38,
-  "hasTag": false,
-  "tagText": "",
-  "tagColor": "#FF0000",
-  "textLayers": [
-    {
-      "id": "main",
-      "text": "মূল শিরোনাম (বাংলায়, আকর্ষণীয়, ছোট, ৩-৭ শব্দ)",
-      "x": 60,
-      "y": 160,
-      "fontSize": 95,
-      "fontWeight": "900",
-      "color": "#FFFFFF",
-      "strokeColor": "#000000",
-      "strokeWidth": 4,
-      "shadowColor": "#000000",
-      "shadowBlur": 20,
-      "rotation": 0,
-      "gradient": false,
-      "gradientFrom": "#FFD700",
-      "gradientTo": "#FF6B35",
-      "align": "left",
-      "fontFamily": "Noto Sans Bengali",
-      "uppercase": false,
-      "outline": false,
-      "glow": false,
-      "glowColor": "#FFD700"
-    },
-    {
-      "id": "sub",
-      "text": "সাবটাইটেল (বাংলায়, ২-৫ শব্দ)",
-      "x": 60,
-      "y": 300,
-      "fontSize": 60,
-      "fontWeight": "700",
-      "color": "#FFD700",
-      "strokeColor": "#000000",
-      "strokeWidth": 2,
-      "shadowColor": "#000000",
-      "shadowBlur": 10,
-      "rotation": 0,
-      "gradient": false,
-      "gradientFrom": "#FFD700",
-      "gradientTo": "#FF6B35",
-      "align": "left",
-      "fontFamily": "Noto Sans Bengali",
-      "uppercase": false,
-      "outline": false,
-      "glow": false,
-      "glowColor": "#FFD700"
-    }
-  ]
-}
-
-নিয়মাবলী:
-- টেক/AI বিষয়ে: purple/blue gradient (#0a0a2e → #1a0a3e), glow effect ব্যবহার করো
-- ভ্রমণে: green gradient (#064e3b → #065f46), উৎসাহী টেক্সট
-- ইনকাম/বিজনেসে: dark gold (#1a1a1a → #2d1f00), yellow text, gradient text
-- খাবারে: red gradient (#7f1d1d → #dc2626)
-- হরর/রহস্যে: black/red (#000000 → #1a0000), glow true, frameColor red
-- রিভিউতে: indigo (#1e1b4b → #312e81)
-- সর্বদা বাংলায় টেক্সট লিখো
-- টেক্সট সংক্ষিপ্ত কিন্তু আকর্ষণীয় রাখো
-- emoji ব্যবহার করো প্রাসঙ্গিক ক্ষেত্রে
-- শুধু JSON দাও, কোনো ব্যাখ্যা নয়`
-
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: `এই বিষয়ের জন্য থাম্বনেইল ডিজাইন করো: "${aiPrompt}"` }],
-        }),
+        body: JSON.stringify({ prompt: aiPrompt }),
       })
 
       const data = await response.json()
-      const rawText = data.content?.[0]?.text || ''
 
-      // Parse JSON from response
-      let jsonStr = rawText.trim()
-      const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (fenceMatch) jsonStr = fenceMatch[1].trim()
-      const braceStart = jsonStr.indexOf('{')
-      const braceEnd = jsonStr.lastIndexOf('}')
-      if (braceStart !== -1 && braceEnd !== -1) {
-        jsonStr = jsonStr.slice(braceStart, braceEnd + 1)
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Server error')
       }
 
-      const aiConfig = JSON.parse(jsonStr)
+      const aiConfig = data.config
 
-      // Apply AI config to current config
       setConfig(prev => ({
         ...prev,
         backgroundType: aiConfig.backgroundType || 'gradient',
@@ -597,16 +501,17 @@ JSON structure এভাবে হবে:
       }))
 
       setAiSuccess(true)
-      setActiveTab('template') // Switch to preview-friendly tab after success
+      setActiveTab('template')
       setTimeout(() => setAiSuccess(false), 4000)
     } catch (err) {
       console.error(err)
-      setAiError('কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।')
+      setAiError('\u0995\u09bf\u099b\u09c1 \u09b8\u09ae\u09b8\u09cd\u09af\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7\u0964 \u0986\u09ac\u09be\u09b0 \u099a\u09c7\u09b7\u09cd\u099f\u09be \u0995\u09b0\u09c1\u09a8\u0964')
     } finally {
       setAiLoading(false)
     }
   }
 
+  // Update layer
   // Update layer
   const updateLayer = (idx: number, updates: Partial<TextLayer>) => {
     setConfig(prev => {
