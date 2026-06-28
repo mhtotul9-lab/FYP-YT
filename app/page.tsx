@@ -473,6 +473,9 @@ export default function Home() {
       const data = await response.json()
 
       if (!response.ok || data.error) {
+        if (data.error === 'NO_API_KEY') {
+          throw new Error('NO_API_KEY')
+        }
         throw new Error(data.error || 'Server error')
       }
 
@@ -503,9 +506,14 @@ export default function Home() {
       setAiSuccess(true)
       setActiveTab('template')
       setTimeout(() => setAiSuccess(false), 4000)
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err)
-      setAiError('\u0995\u09bf\u099b\u09c1 \u09b8\u09ae\u09b8\u09cd\u09af\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7\u0964 \u0986\u09ac\u09be\u09b0 \u099a\u09c7\u09b7\u09cd\u099f\u09be \u0995\u09b0\u09c1\u09a8\u0964')
+      const msg = err instanceof Error ? err.message : ''
+      if (msg === 'NO_API_KEY') {
+        setAiError('NO_API_KEY')
+      } else {
+        setAiError('GENERAL_ERROR')
+      }
     } finally {
       setAiLoading(false)
     }
@@ -673,9 +681,23 @@ export default function Home() {
                 </div>
 
                 {/* Error */}
-                {aiError && (
+                {aiError === 'NO_API_KEY' && (
+                  <div className="p-3 rounded-lg bg-orange-900/40 border border-orange-600 text-orange-200 text-xs space-y-2">
+                    <p className="font-bold text-orange-300">⚠️ Vercel এ API Key সেট করা নেই!</p>
+                    <p>Vercel Dashboard এ যান:</p>
+                    <p className="font-mono bg-black/30 p-1.5 rounded">Settings → Environment Variables</p>
+                    <p>নতুন variable যোগ করুন:</p>
+                    <p className="font-mono bg-black/30 p-1.5 rounded">Name: ANTHROPIC_API_KEY<br/>Value: sk-ant-...</p>
+                    <p>Save করে Redeploy করুন।</p>
+                    <a href="https://console.anthropic.com/settings/keys" target="_blank"
+                      className="block mt-1 text-blue-400 underline">
+                      → API Key নিন: console.anthropic.com
+                    </a>
+                  </div>
+                )}
+                {aiError === 'GENERAL_ERROR' && (
                   <div className="p-3 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-xs">
-                    ❌ {aiError}
+                    ❌ কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।
                   </div>
                 )}
 

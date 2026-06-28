@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
+      return NextResponse.json({ error: 'NO_API_KEY' }, { status: 500 })
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errText = await response.text()
       console.error('Anthropic API error:', errText)
-      return NextResponse.json({ error: 'AI service error' }, { status: 502 })
+      return NextResponse.json({ error: 'ANTHROPIC_ERROR', detail: errText }, { status: 502 })
     }
 
     const data = await response.json()
