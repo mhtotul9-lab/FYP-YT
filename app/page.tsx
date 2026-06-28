@@ -638,7 +638,7 @@ export default function Home() {
                       <span className="text-2xl">🤖</span>
                       <div>
                         <p className="font-black text-white text-sm">AI থাম্বনেইল মেকার</p>
-                        <p className="text-xs text-purple-300">Powered by Claude AI</p>
+                        <p className="text-xs text-purple-300">Powered by OpenRouter AI</p>
                       </div>
                     </div>
                     <p className="text-xs text-purple-200 leading-relaxed">
@@ -689,14 +689,14 @@ export default function Home() {
                 {/* Error */}
                 {aiError === 'NO_API_KEY' && (
                   <div className="p-3 rounded-lg bg-orange-900/40 border border-orange-600 text-orange-200 text-xs space-y-2">
-                    <p className="font-bold text-orange-300">⚠️ Vercel এ Gemini API Key নেই!</p>
-                    <p>১. Gemini API Key নিন (ফ্রি):</p>
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                    <p className="font-bold text-orange-300">⚠️ OpenRouter API Key সেট নেই!</p>
+                    <p>১. ফ্রি API Key নিন:</p>
+                    <a href="https://openrouter.ai/keys" target="_blank"
                       className="block font-mono bg-black/30 p-1.5 rounded text-blue-400 underline">
-                      aistudio.google.com/app/apikey
+                      openrouter.ai/keys
                     </a>
                     <p>২. Vercel → Settings → Environment Variables:</p>
-                    <p className="font-mono bg-black/30 p-1.5 rounded">Name: GEMINI_API_KEY<br/>Value: AIza...</p>
+                    <p className="font-mono bg-black/30 p-1.5 rounded">Name: OPENROUTER_API_KEY<br/>Value: sk-or-v1-...</p>
                     <p>৩. Save → Redeploy করুন।</p>
                   </div>
                 )}
