@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const SYSTEM_PROMPT = `তুমি একজন বাংলাদেশি YouTube থাম্বনেইল ডিজাইন বিশেষজ্ঞ। ব্যবহারকারীর দেওয়া বিষয়ের উপর ভিত্তি করে থাম্বনেইল কনফিগারেশন তৈরি করো।
+const SYSTEM_PROMPT = `You are a Bangladeshi YouTube thumbnail design expert. Create thumbnail configurations based on the user's topic.
 
-শুধুমাত্র raw JSON দাও — কোনো markdown, backtick, বা ব্যাখ্যা নয়।
+Return ONLY raw JSON, no markdown, no backticks, no explanation.
 
 JSON format:
 {
   "backgroundType": "gradient",
-  "gradientFrom": "#hex",
-  "gradientTo": "#hex",
+  "gradientFrom": "#0a0a2e",
+  "gradientTo": "#1a0a3e",
   "gradientDirection": "135deg",
   "hasFrame": true,
-  "frameColor": "#hex",
+  "frameColor": "#7C3AED",
   "frameWidth": 5,
   "hasLogo": true,
   "logoText": "চলতি",
@@ -24,7 +24,7 @@ JSON format:
   "textLayers": [
     {
       "id": "main",
-      "text": "বাংলায় মূল শিরোনাম ৩-৬ শব্দ + emoji",
+      "text": "Bengali headline 3-6 words + emoji",
       "x": 60,
       "y": 160,
       "fontSize": 95,
@@ -47,7 +47,7 @@ JSON format:
     },
     {
       "id": "sub",
-      "text": "বাংলায় সাবটাইটেল ২-৪ শব্দ",
+      "text": "Bengali subtitle 2-4 words",
       "x": 60,
       "y": 300,
       "fontSize": 58,
@@ -71,28 +71,26 @@ JSON format:
   ]
 }
 
-বিষয় অনুযায়ী রং:
-- টেক/AI: gradientFrom "#0a0a2e" gradientTo "#1a0a3e" frameColor "#7C3AED" glow true glowColor "#7C3AED"
-- ভ্রমণ: gradientFrom "#064e3b" gradientTo "#065f46" frameColor "#10B981"
-- ইনকাম/বিজনেস: gradientFrom "#1a1a1a" gradientTo "#2d1f00" color "#FFD700" gradient true in main layer
-- খাবার/রান্না: gradientFrom "#7f1d1d" gradientTo "#dc2626" frameColor "#FCA5A5"
-- হরর/রহস্য: gradientFrom "#000000" gradientTo "#1a0000" glow true frameColor "#DC2626"
-- রিভিউ/প্রোডাক্ট: gradientFrom "#1e1b4b" gradientTo "#312e81" frameColor "#818CF8"
-- সব সময় বাংলায় লিখো, emoji যোগ করো, শুধু JSON`
+Color rules by topic:
+- Tech/AI: gradientFrom "#0a0a2e" gradientTo "#1a0a3e" frameColor "#7C3AED" glow true
+- Travel: gradientFrom "#064e3b" gradientTo "#065f46" frameColor "#10B981"
+- Income/Business: gradientFrom "#1a1a1a" gradientTo "#2d1f00" main color "#FFD700" gradient true
+- Food: gradientFrom "#7f1d1d" gradientTo "#dc2626" frameColor "#FCA5A5"
+- Horror: gradientFrom "#000000" gradientTo "#1a0000" glow true frameColor "#DC2626"
+- Review: gradientFrom "#1e1b4b" gradientTo "#312e81" frameColor "#818CF8"
+Always write text in Bengali, add relevant emoji. Return only JSON.`
 
-// Free models on OpenRouter (no credit needed)
 const FREE_MODELS = [
   'meta-llama/llama-3.3-70b-instruct:free',
   'mistralai/mistral-7b-instruct:free',
   'google/gemma-3-27b-it:free',
-  'deepseek/deepseek-r1-0528:free',
   'microsoft/phi-4-reasoning:free',
+  'deepseek/deepseek-r1-0528:free',
 ]
 
 export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json()
-
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'prompt required' }, { status: 400 })
     }
@@ -102,13 +100,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NO_API_KEY' }, { status: 500 })
     }
 
+    console.log(`[ai-generate] prompt: "${prompt}", key starts: ${apiKey.slice(0, 10)}...`)
+
     let lastError = ''
 
     for (const model of FREE_MODELS) {
       try {
-        console.log(`Trying model: ${model}`)
+        console.log(`[ai-generate] trying: ${model}`)
 
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -120,67 +120,58 @@ export async function POST(request: NextRequest) {
             model,
             messages: [
               { role: 'system', content: SYSTEM_PROMPT },
-              { role: 'user', content: `এই বিষয়ের জন্য থাম্বনেইল ডিজাইন করো: "${prompt}"` },
+              { role: 'user', content: `Create thumbnail for: "${prompt}". Write all text in Bengali.` },
             ],
             max_tokens: 1200,
             temperature: 0.7,
           }),
         })
 
-        if (response.status === 429 || response.status === 503) {
-          lastError = `${model}: ${response.status} rate limited`
-          console.log(`${model} rate limited, trying next...`)
+        const resText = await res.text()
+        console.log(`[ai-generate] ${model} status: ${res.status}, body: ${resText.slice(0, 300)}`)
+
+        if (res.status === 429 || res.status === 503 || res.status === 502) {
+          lastError = `${model}: ${res.status}`
           continue
         }
 
-        if (!response.ok) {
-          const errText = await response.text()
-          lastError = `${model}: ${response.status} ${errText.slice(0, 200)}`
-          console.error(`${model} error:`, response.status, errText.slice(0, 200))
+        if (!res.ok) {
+          lastError = `${model}: ${res.status} - ${resText.slice(0, 200)}`
           continue
         }
 
-        const data = await response.json()
-        const rawText: string = data?.choices?.[0]?.message?.content || ''
+        const data = JSON.parse(resText)
+        let rawText: string = data?.choices?.[0]?.message?.content || ''
 
         if (!rawText) {
-          lastError = `${model}: empty response`
-          console.log(`${model} empty response`)
+          lastError = `${model}: empty content`
           continue
         }
 
-        // Strip markdown fences if present
+        // Strip markdown fences
         let jsonStr = rawText.trim()
         const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
         if (fenceMatch) jsonStr = fenceMatch[1].trim()
-        const braceStart = jsonStr.indexOf('{')
-        const braceEnd = jsonStr.lastIndexOf('}')
-        if (braceStart !== -1 && braceEnd !== -1) {
-          jsonStr = jsonStr.slice(braceStart, braceEnd + 1)
-        }
+        const b1 = jsonStr.indexOf('{')
+        const b2 = jsonStr.lastIndexOf('}')
+        if (b1 !== -1 && b2 !== -1) jsonStr = jsonStr.slice(b1, b2 + 1)
 
         const aiConfig = JSON.parse(jsonStr)
-        console.log(`✅ Success with: ${model}`)
+        console.log(`[ai-generate] ✅ success with: ${model}`)
         return NextResponse.json({ config: aiConfig, model })
 
-      } catch (modelErr) {
-        lastError = `${model}: ${String(modelErr)}`
-        console.error(`${model} exception:`, modelErr)
+      } catch (e) {
+        lastError = `${model}: ${String(e)}`
+        console.error(`[ai-generate] ${model} exception:`, e)
         continue
       }
     }
 
-    console.error('All models failed. Last error:', lastError)
-    return NextResponse.json(
-      { error: 'ALL_MODELS_FAILED', detail: lastError },
-      { status: 502 }
-    )
+    console.error(`[ai-generate] all models failed. last: ${lastError}`)
+    return NextResponse.json({ error: 'ALL_MODELS_FAILED', detail: lastError }, { status: 502 })
 
   } catch (err) {
-    console.error('Route error:', err)
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', detail: String(err) },
-      { status: 500 }
-    )
+    console.error('[ai-generate] route error:', err)
+    return NextResponse.json({ error: 'INTERNAL_ERROR', detail: String(err) }, { status: 500 })
   }
 }
