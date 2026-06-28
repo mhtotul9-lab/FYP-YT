@@ -703,8 +703,11 @@ export default function Home() {
                 {aiError && aiError !== 'NO_API_KEY' && (
                   <div className="p-3 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-xs space-y-1">
                     <p className="font-bold">❌ কিছু সমস্যা হয়েছে</p>
-                    <p className="font-mono text-xs opacity-70 break-all">{aiError}</p>
-                    <p>Browser Console (F12) এ full error দেখুন।</p>
+                    {aiError.includes('GEMINI_ERROR') || aiError.includes('ALL_MODELS') ? (
+                      <p>Gemini API সাময়িক ব্যস্ত। ৩০ সেকেন্ড পর আবার চেষ্টা করুন।</p>
+                    ) : (
+                      <p className="font-mono text-xs opacity-70 break-all">{aiError}</p>
+                    )}
                   </div>
                 )}
 
