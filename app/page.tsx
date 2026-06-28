@@ -471,10 +471,14 @@ export default function Home() {
       })
 
       const data = await response.json()
+      console.log('API response:', response.status, data)
 
       if (!response.ok || data.error) {
         if (data.error === 'NO_API_KEY') {
           throw new Error('NO_API_KEY')
+        }
+        if (data.error === 'ANTHROPIC_ERROR') {
+          throw new Error('ANTHROPIC_ERROR:' + (data.status || '') + ':' + (data.detail || ''))
         }
         throw new Error(data.error || 'Server error')
       }
@@ -507,12 +511,14 @@ export default function Home() {
       setActiveTab('template')
       setTimeout(() => setAiSuccess(false), 4000)
     } catch (err: unknown) {
-      console.error(err)
+      console.error('AI generate error:', err)
       const msg = err instanceof Error ? err.message : ''
       if (msg === 'NO_API_KEY') {
         setAiError('NO_API_KEY')
+      } else if (msg.startsWith('ANTHROPIC_ERROR')) {
+        setAiError('ANTHROPIC_ERROR:' + msg)
       } else {
-        setAiError('GENERAL_ERROR')
+        setAiError('GENERAL_ERROR:' + msg)
       }
     } finally {
       setAiLoading(false)
@@ -683,21 +689,22 @@ export default function Home() {
                 {/* Error */}
                 {aiError === 'NO_API_KEY' && (
                   <div className="p-3 rounded-lg bg-orange-900/40 border border-orange-600 text-orange-200 text-xs space-y-2">
-                    <p className="font-bold text-orange-300">⚠️ Vercel এ API Key সেট করা নেই!</p>
-                    <p>Vercel Dashboard এ যান:</p>
-                    <p className="font-mono bg-black/30 p-1.5 rounded">Settings → Environment Variables</p>
-                    <p>নতুন variable যোগ করুন:</p>
-                    <p className="font-mono bg-black/30 p-1.5 rounded">Name: ANTHROPIC_API_KEY<br/>Value: sk-ant-...</p>
-                    <p>Save করে Redeploy করুন।</p>
-                    <a href="https://console.anthropic.com/settings/keys" target="_blank"
-                      className="block mt-1 text-blue-400 underline">
-                      → API Key নিন: console.anthropic.com
+                    <p className="font-bold text-orange-300">⚠️ Vercel এ Gemini API Key নেই!</p>
+                    <p>১. Gemini API Key নিন (ফ্রি):</p>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                      className="block font-mono bg-black/30 p-1.5 rounded text-blue-400 underline">
+                      aistudio.google.com/app/apikey
                     </a>
+                    <p>২. Vercel → Settings → Environment Variables:</p>
+                    <p className="font-mono bg-black/30 p-1.5 rounded">Name: GEMINI_API_KEY<br/>Value: AIza...</p>
+                    <p>৩. Save → Redeploy করুন।</p>
                   </div>
                 )}
-                {aiError === 'GENERAL_ERROR' && (
-                  <div className="p-3 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-xs">
-                    ❌ কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।
+                {aiError && aiError !== 'NO_API_KEY' && (
+                  <div className="p-3 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-xs space-y-1">
+                    <p className="font-bold">❌ কিছু সমস্যা হয়েছে</p>
+                    <p className="font-mono text-xs opacity-70 break-all">{aiError}</p>
+                    <p>Browser Console (F12) এ full error দেখুন।</p>
                   </div>
                 )}
 
