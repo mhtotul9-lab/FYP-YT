@@ -270,14 +270,13 @@ async function renderThumbnail(canvas: HTMLCanvasElement, config: ThumbnailConfi
   canvas.height = H
   await document.fonts.ready
 
-  // Background
+  // ── 1. BACKGROUND ──────────────────────────────────────────────────────────
   if (config.backgroundType === 'image' && config.bgImage) {
     await new Promise<void>((resolve) => {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
-        const ar = img.width / img.height
-        const ca = W / H
+        const ar = img.width / img.height, ca = W / H
         let dW, dH, dX, dY
         if (ar > ca) { dH = H; dW = H * ar; dX = (W - dW) / 2; dY = 0 }
         else { dW = W; dH = W / ar; dX = 0; dY = (H - dH) / 2 }
@@ -289,10 +288,8 @@ async function renderThumbnail(canvas: HTMLCanvasElement, config: ThumbnailConfi
     })
   } else if (config.backgroundType === 'gradient') {
     const angle = parseFloat(config.gradientDirection?.replace('deg', '') || '135') * (Math.PI / 180)
-    const x1 = W / 2 - (Math.cos(angle) * W) / 2
-    const y1 = H / 2 - (Math.sin(angle) * H) / 2
-    const x2 = W / 2 + (Math.cos(angle) * W) / 2
-    const y2 = H / 2 + (Math.sin(angle) * H) / 2
+    const x1 = W/2 - Math.cos(angle)*W/2, y1 = H/2 - Math.sin(angle)*H/2
+    const x2 = W/2 + Math.cos(angle)*W/2, y2 = H/2 + Math.sin(angle)*H/2
     const grad = ctx.createLinearGradient(x1, y1, x2, y2)
     grad.addColorStop(0, config.gradientFrom)
     grad.addColorStop(1, config.gradientTo)
@@ -308,17 +305,37 @@ async function renderThumbnail(canvas: HTMLCanvasElement, config: ThumbnailConfi
     ctx.fillStyle = config.bgOverlayColor; ctx.fillRect(0, 0, W, H); ctx.restore()
   }
 
-  // Diagonal stripe decoration
-  ctx.save(); ctx.globalAlpha = 0.04
-  for (let i = -H; i < W + H; i += 60) {
+  // ── 2. DECORATIVE BACKGROUND ELEMENTS ───────────────────────────────────────
+  // Large glowing circle (right side accent)
+  ctx.save()
+  ctx.globalAlpha = 0.12
+  const circleGrad = ctx.createRadialGradient(W*0.82, H*0.5, 0, W*0.82, H*0.5, H*0.7)
+  circleGrad.addColorStop(0, '#ffffff')
+  circleGrad.addColorStop(1, 'transparent')
+  ctx.fillStyle = circleGrad
+  ctx.fillRect(0, 0, W, H)
+  ctx.restore()
+
+  // Diagonal stripes
+  ctx.save(); ctx.globalAlpha = 0.035
+  for (let i = -H; i < W + H; i += 55) {
     ctx.fillStyle = '#ffffff'; ctx.beginPath()
-    ctx.moveTo(i, 0); ctx.lineTo(i + 30, 0)
-    ctx.lineTo(i + 30 - H, H); ctx.lineTo(i - H, H)
+    ctx.moveTo(i, 0); ctx.lineTo(i+28, 0)
+    ctx.lineTo(i+28-H, H); ctx.lineTo(i-H, H)
     ctx.closePath(); ctx.fill()
   }
   ctx.restore()
 
-  // Person image
+  // Bottom gradient shadow band (makes text pop)
+  ctx.save()
+  const bottomGrad = ctx.createLinearGradient(0, H*0.55, 0, H)
+  bottomGrad.addColorStop(0, 'rgba(0,0,0,0)')
+  bottomGrad.addColorStop(1, 'rgba(0,0,0,0.6)')
+  ctx.fillStyle = bottomGrad
+  ctx.fillRect(0, 0, W, H)
+  ctx.restore()
+
+  // ── 3. PERSON / MAIN IMAGE (right side) ─────────────────────────────────────
   if (config.personImage) {
     await new Promise<void>((resolve) => {
       const img = new Image()
@@ -326,7 +343,14 @@ async function renderThumbnail(canvas: HTMLCanvasElement, config: ThumbnailConfi
       img.onload = () => {
         const tH = H * config.personScale
         const tW = (img.width / img.height) * tH
+        // Drop shadow under person
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.8)'
+        ctx.shadowBlur = 40 * scale
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 20 * scale
         ctx.drawImage(img, config.personX * scale, config.personY * scale, tW, tH)
+        ctx.restore()
         resolve()
       }
       img.onerror = () => resolve()
@@ -334,84 +358,134 @@ async function renderThumbnail(canvas: HTMLCanvasElement, config: ThumbnailConfi
     })
   }
 
-  // Text layers
+  // ── 4. TEXT LAYERS ──────────────────────────────────────────────────────────
   for (const layer of config.textLayers) {
     ctx.save()
     const fs = layer.fontSize * scale
-    ctx.font = `${layer.fontWeight} ${fs}px '${layer.fontFamily}', 'Noto Sans Bengali', sans-serif`
-    const x = layer.x * scale
-    const y = layer.y * scale
-    ctx.translate(x, y)
+    ctx.font = `${layer.fontWeight} ${fs}px '${layer.fontFamily}', 'Noto Sans Bengali', 'Anton', sans-serif`
+    ctx.translate(layer.x * scale, layer.y * scale)
     ctx.rotate((layer.rotation * Math.PI) / 180)
     ctx.textAlign = layer.align
     ctx.textBaseline = 'top'
     const text = layer.uppercase ? layer.text.toUpperCase() : layer.text
-    if (layer.glow) { ctx.shadowColor = layer.glowColor; ctx.shadowBlur = 25 * scale }
+
+    // Glow effect
+    if (layer.glow) {
+      ctx.save()
+      ctx.shadowColor = layer.glowColor
+      ctx.shadowBlur = 35 * scale
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0
+      if (layer.gradient) {
+        const tw = ctx.measureText(text).width
+        const tg = ctx.createLinearGradient(0, 0, tw, 0)
+        tg.addColorStop(0, layer.gradientFrom); tg.addColorStop(1, layer.gradientTo)
+        ctx.fillStyle = tg
+      } else { ctx.fillStyle = layer.color }
+      ctx.fillText(text, 0, 0)
+      ctx.restore()
+    }
+
+    // Main text shadow
     ctx.shadowColor = layer.shadowColor
     ctx.shadowBlur = layer.shadowBlur * scale
-    ctx.shadowOffsetX = 3 * scale
-    ctx.shadowOffsetY = 3 * scale
+    ctx.shadowOffsetX = 4 * scale
+    ctx.shadowOffsetY = 4 * scale
+
+    // Stroke (outline)
+    if (layer.strokeWidth > 0) {
+      ctx.lineWidth = layer.strokeWidth * scale * 2
+      ctx.strokeStyle = layer.strokeColor
+      ctx.lineJoin = 'round'
+      ctx.strokeText(text, 0, 0)
+    }
+
+    // Fill
     if (layer.gradient) {
       const tw = ctx.measureText(text).width
       const tg = ctx.createLinearGradient(0, 0, tw, fs)
       tg.addColorStop(0, layer.gradientFrom); tg.addColorStop(1, layer.gradientTo)
       ctx.fillStyle = tg
     } else { ctx.fillStyle = layer.color }
-    if (layer.strokeWidth > 0) {
-      ctx.lineWidth = layer.strokeWidth * scale
-      ctx.strokeStyle = layer.strokeColor
-      ctx.lineJoin = 'round'
-      ctx.strokeText(text, 0, 0)
-    }
     ctx.fillText(text, 0, 0)
     ctx.restore()
   }
 
-  // Logo
+  // ── 5. LOGO / CHANNEL TAG ───────────────────────────────────────────────────
   if (config.hasLogo && config.logoText) {
     ctx.save()
     const lx = config.logoX * scale, ly = config.logoY * scale
-    const ls = config.logoSize * scale, pad = 12 * scale
+    const ls = config.logoSize * scale, pad = 14 * scale
     ctx.font = `bold ${ls}px 'Noto Sans Bengali', sans-serif`
     const tw = ctx.measureText(config.logoText).width
-    const bW = tw + pad * 2, bH = ls + pad * 1.5
-    ctx.fillStyle = 'rgba(255,255,255,0.15)'
+    const bW = tw + pad * 2, bH = ls + pad * 1.4
+
+    // Pill with gradient
+    const pillGrad = ctx.createLinearGradient(lx, ly, lx + bW, ly + bH)
+    pillGrad.addColorStop(0, 'rgba(255,255,255,0.2)')
+    pillGrad.addColorStop(1, 'rgba(255,255,255,0.08)')
+    ctx.fillStyle = pillGrad
     ctx.beginPath(); ctx.roundRect(lx, ly, bW, bH, 8 * scale); ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5 * scale; ctx.stroke()
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1.5 * scale; ctx.stroke()
+
     ctx.fillStyle = '#FFFFFF'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6
     ctx.fillText(config.logoText, lx + pad, ly + bH / 2)
     ctx.restore()
   }
 
-  // Tag
+  // ── 6. TAG BADGE (bottom-left) ───────────────────────────────────────────────
   if (config.hasTag && config.tagText) {
     ctx.save()
-    const tx = 60 * scale, ty = (config.height - 120) * scale
-    const th = 60 * scale, tfs = 34 * scale
+    const tx = 55 * scale, ty = (config.height - 110) * scale
+    const tfs = 36 * scale, th = 62 * scale
     ctx.font = `bold ${tfs}px 'Noto Sans Bengali', sans-serif`
     const tw = ctx.measureText(config.tagText).width
-    const tW2 = tw + 40 * scale
+    const tW = tw + 44 * scale
+
+    // Shadow under badge
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 12 * scale
+
     ctx.fillStyle = config.tagColor
-    ctx.beginPath(); ctx.roundRect(tx, ty, tW2, th, 6 * scale); ctx.fill()
+    ctx.beginPath(); ctx.roundRect(tx, ty, tW, th, 7 * scale); ctx.fill()
+
+    // Shine on badge
+    ctx.shadowBlur = 0
+    const shineGrad = ctx.createLinearGradient(tx, ty, tx, ty + th/2)
+    shineGrad.addColorStop(0, 'rgba(255,255,255,0.3)')
+    shineGrad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = shineGrad
+    ctx.beginPath(); ctx.roundRect(tx, ty, tW, th/2, [7*scale, 7*scale, 0, 0]); ctx.fill()
+
     ctx.fillStyle = '#FFFFFF'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'
     ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4
-    ctx.fillText(config.tagText, tx + tW2 / 2, ty + th / 2)
+    ctx.fillText(config.tagText, tx + tW/2, ty + th/2)
     ctx.restore()
   }
 
-  // Frame
+  // ── 7. BORDER FRAME ─────────────────────────────────────────────────────────
   if (config.hasFrame) {
     ctx.save()
+    const fw = config.frameWidth * scale
+    // Outer glow
+    ctx.shadowColor = config.frameColor
+    ctx.shadowBlur = 15 * scale
     ctx.strokeStyle = config.frameColor
-    ctx.lineWidth = config.frameWidth * scale
-    ctx.strokeRect(config.frameWidth * scale, config.frameWidth * scale, W - config.frameWidth * 2 * scale, H - config.frameWidth * 2 * scale)
+    ctx.lineWidth = fw
+    ctx.strokeRect(fw/2, fw/2, W - fw, H - fw)
     ctx.restore()
   }
 
-  // Corner accent
-  ctx.save(); ctx.globalAlpha = 0.3; ctx.fillStyle = '#FFFFFF'
-  ctx.beginPath(); ctx.moveTo(W - 80 * scale, H); ctx.lineTo(W, H - 80 * scale)
-  ctx.lineTo(W, H); ctx.closePath(); ctx.fill(); ctx.restore()
+  // ── 8. CORNER ACCENT (bottom-right) ─────────────────────────────────────────
+  ctx.save()
+  ctx.globalAlpha = 0.18
+  const cornerGrad = ctx.createLinearGradient(W-120*scale, H, W, H-120*scale)
+  cornerGrad.addColorStop(0, 'transparent')
+  cornerGrad.addColorStop(1, '#ffffff')
+  ctx.fillStyle = cornerGrad
+  ctx.beginPath()
+  ctx.moveTo(W - 100*scale, H); ctx.lineTo(W, H - 100*scale)
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill()
+  ctx.restore()
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
