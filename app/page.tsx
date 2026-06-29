@@ -73,6 +73,30 @@ const SIZES = [
   { label: 'TikTok (1080×1920)', w: 1080, h: 1920 },
 ]
 
+
+// ─── Fonts ────────────────────────────────────────────────────────────────────
+const BANGLA_FONTS = [
+  { label: 'Noto Sans Bengali (ডিফল্ট)', value: 'Noto Sans Bengali' },
+  { label: 'Hind Siliguri', value: 'Hind Siliguri' },
+  { label: 'Baloo Da 2 (গোলাকার)', value: 'Baloo Da 2' },
+  { label: 'Tiro Bangla (ক্লাসিক)', value: 'Tiro Bangla' },
+  { label: 'Galada (বোল্ড)', value: 'Galada' },
+]
+
+const ENGLISH_FONTS = [
+  { label: 'Anton (Heavy)', value: 'Anton' },
+  { label: 'Bebas Neue (Tall)', value: 'Bebas Neue' },
+  { label: 'Oswald (Bold)', value: 'Oswald' },
+  { label: 'Bangers (Comic)', value: 'Bangers' },
+  { label: 'Russo One', value: 'Russo One' },
+  { label: 'Righteous', value: 'Righteous' },
+  { label: 'Alfa Slab One', value: 'Alfa Slab One' },
+  { label: 'Permanent Marker', value: 'Permanent Marker' },
+  { label: 'Boogaloo', value: 'Boogaloo' },
+]
+
+const ALL_FONTS = [...BANGLA_FONTS, ...ENGLISH_FONTS]
+
 // ─── Templates ───────────────────────────────────────────────────────────────
 const TEMPLATES = [
   {
@@ -409,6 +433,8 @@ export default function Home() {
 
   // AI states
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiStyle, setAiStyle] = useState('auto')
+  const [aiLang, setAiLang] = useState('bangla')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const [aiSuccess, setAiSuccess] = useState(false)
@@ -467,7 +493,7 @@ export default function Home() {
       const response = await fetch('/api/ai-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt }),
+        body: JSON.stringify({ prompt: aiPrompt, style: aiStyle, lang: aiLang }),
       })
 
       const data = await response.json()
@@ -663,6 +689,35 @@ export default function Home() {
                   <p className="text-xs text-gray-600 mt-1">Ctrl+Enter দিয়েও জেনারেট করতে পারবেন</p>
                 </div>
 
+                {/* Style + Language selectors */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">🎨 স্টাইল</label>
+                    <select value={aiStyle} onChange={e => setAiStyle(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white">
+                      <option value="auto">🤖 অটো</option>
+                      <option value="income">💰 ইনকাম/বিজনেস</option>
+                      <option value="tech">⚡ টেক/AI</option>
+                      <option value="travel">✈️ ট্রাভেল</option>
+                      <option value="food">🍜 খাবার</option>
+                      <option value="horror">👻 হরর</option>
+                      <option value="review">⭐ রিভিউ</option>
+                      <option value="sports">🏆 স্পোর্টস</option>
+                      <option value="gaming">🎮 গেমিং</option>
+                      <option value="tutorial">📚 টিউটোরিয়াল</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">🔤 ভাষা</label>
+                    <select value={aiLang} onChange={e => setAiLang(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white">
+                      <option value="bangla">বাংলা</option>
+                      <option value="english">English</option>
+                      <option value="mixed">বাংলা + English</option>
+                    </select>
+                  </div>
+                </div>
+
                 {/* Example prompts */}
                 <div>
                   <p className="text-xs text-gray-500 mb-2">💡 উদাহরণ ক্লিক করুন:</p>
@@ -792,6 +847,31 @@ export default function Home() {
                     <div>
                       <label className="text-xs text-gray-400 mb-1 flex justify-between"><span>ফন্ট সাইজ</span><span className="text-white font-bold">{curLayer.fontSize}px</span></label>
                       <input type="range" min={20} max={200} value={curLayer.fontSize} onChange={e => updateLayer(selectedLayer, { fontSize: +e.target.value })} className="w-full accent-blue-500" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">ফন্ট সিলেক্ট করুন</label>
+                      <div className="mb-1">
+                        <p className="text-xs text-gray-600 mb-1">🇧🇩 বাংলা ফন্ট</p>
+                        <div className="grid grid-cols-1 gap-1">
+                          {BANGLA_FONTS.map(f => (
+                            <button key={f.value} onClick={() => updateLayer(selectedLayer, { fontFamily: f.value })}
+                              className={`px-2 py-1.5 rounded text-xs text-left truncate ${curLayer.fontFamily === f.value ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                              style={{ fontFamily: f.value }}>
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-600 mb-1 mt-2">🔤 English ফন্ট</p>
+                        <div className="grid grid-cols-1 gap-1">
+                          {ENGLISH_FONTS.map(f => (
+                            <button key={f.value} onClick={() => updateLayer(selectedLayer, { fontFamily: f.value })}
+                              className={`px-2 py-1.5 rounded text-xs text-left truncate ${curLayer.fontFamily === f.value ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                              style={{ fontFamily: f.value }}>
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs text-gray-400 mb-1 block">ফন্ট ওজন</label>

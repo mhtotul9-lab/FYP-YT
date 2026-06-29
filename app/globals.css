@@ -1,14 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800;900&family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800;900&family=Hind+Siliguri:wght@400;500;600;700&family=Tiro+Bangla:ital@0;1&family=Baloo+Da+2:wght@400;500;600;700;800&family=Galada&family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Black+Han+Sans&family=Righteous&family=Bangers&family=Russo+One&family=Alfa+Slab+One&family=Boogaloo&family=Permanent+Marker&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Noto Sans Bengali', 'Hind Siliguri', sans-serif;
@@ -17,54 +13,13 @@ body {
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 3px;
-}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1a1a1a; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 
-/* Canvas container */
-.canvas-wrapper canvas {
-  max-width: 100%;
-  height: auto;
-}
+input, textarea, select { font-family: 'Noto Sans Bengali', 'Hind Siliguri', sans-serif; }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #FFD700, #FF6B35);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Input styles */
-input, textarea, select {
-  font-family: 'Noto Sans Bengali', 'Hind Siliguri', sans-serif;
-}
-
-/* Button hover effects */
-.btn-primary {
-  background: linear-gradient(135deg, #FF0000, #CC0000);
-  transition: all 0.2s ease;
-}
-.btn-primary:hover {
-  background: linear-gradient(135deg, #CC0000, #990000);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4);
-}
-
-.btn-download {
-  background: linear-gradient(135deg, #00C853, #009624);
-  transition: all 0.2s ease;
-}
-.btn-download:hover {
-  background: linear-gradient(135deg, #009624, #006400);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
-}
+.btn-primary { background: linear-gradient(135deg, #FF0000, #CC0000); transition: all 0.2s ease; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(255,0,0,0.4); }
+.btn-download { background: linear-gradient(135deg, #00C853, #009624); transition: all 0.2s ease; }
+.btn-download:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(0,200,83,0.4); }
